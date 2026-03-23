@@ -19,6 +19,42 @@ local packList = {
 mainChannel:Label("Bas PATHOMPONG")
 mainChannel:Seperator()
 
+-- ==================== TOGGLE ลบ Notification ====================
+mainChannel:Toggle("Remove Notification", false, function(val)
+    shared.removeNotif = val
+    
+    if val then
+        if shared.notifConnection then
+            shared.notifConnection:Disconnect()
+        end
+        
+        shared.notifConnection = task.spawn(function()
+            while shared.removeNotif do
+                pcall(function()
+                    local pgui = game:GetService("Players").LocalPlayer:FindFirstChild("PlayerGui")
+                    if pgui then
+                        local notif = pgui:FindFirstChild("Notification")
+                        if notif then
+                            notif:Destroy()
+                        end
+                    end
+                end)
+                task.wait(0.5)
+            end
+        end)
+        
+        DiscordLib:Notification("Remove Notification", "Enabled", "OK")
+    else
+        if shared.notifConnection then
+            shared.notifConnection:Disconnect()
+            shared.notifConnection = nil
+        end
+        DiscordLib:Notification("Remove Notification", "Disabled", "OK")
+    end
+end)
+
+mainChannel:Seperator()
+
 mainChannel:Toggle("Auto Spin", false, function(val)
     shared.autoSpin = val
     if val then
