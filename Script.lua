@@ -25,16 +25,57 @@ mainChannel:Toggle("Auto Spin", false, function(val)
         task.spawn(function()
             while shared.autoSpin do
                 pcall(function()
-                    local remote = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
-                    if remote and remote:FindFirstChild("SpinWheel") then
-                        remote.SpinWheel:FireServer("spin")
+                    local player = game:GetService("Players").LocalPlayer
+                    local spinWheelGui = player.PlayerGui:FindFirstChild("SpinWheel")
+                    
+                    if spinWheelGui then
+                        local main = spinWheelGui:FindFirstChild("Main")
+                        if main then
+                            local spin = main:FindFirstChild("Spin")
+                            if spin then
+                                local spinAmount = spin:FindFirstChild("SpinAmount")
+                                local text = spinAmount and spinAmount.Text or ""
+
+                                local proximityPrompt = workspace:FindFirstChild("Map") 
+                                    and workspace.Map:FindFirstChild("SpinWheel") 
+                                    and workspace.Map.SpinWheel:FindFirstChild("Holder") 
+                                    and workspace.Map.SpinWheel.Holder:FindFirstChild("ProximityPrompt")
+                                
+                                if proximityPrompt then
+                                    pcall(function() fireproximityprompt(proximityPrompt) end)
+                                end
+
+                                if text == "Claim!" then
+                                    task.wait(0.5)
+                                    pcall(function() firesignal(spin.MouseButton1Click) end)
+                                    pcall(function() spin:Activate() end)
+                                    task.wait(0.5)
+                                    
+                                    local remotes = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
+                                    if remotes and remotes:FindFirstChild("SpinWheel") then
+                                        pcall(function() remotes.SpinWheel:FireServer("spin") end)
+                                    end
+                                    
+                                elseif text == "Spin (1)" then
+                                    task.wait(0.3)
+                                    pcall(function() firesignal(spin.MouseButton1Click) end)
+                                    pcall(function() spin:Activate() end)
+                                    
+                                    local remotes = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
+                                    if remotes and remotes:FindFirstChild("SpinWheel") then
+                                        pcall(function() remotes.SpinWheel:FireServer("spin") end)
+                                    end
+                                end
+                            end
+                        end
                     end
                 end)
-                task.wait(math.random(1.1, 1.5))
+                task.wait(3)
             end
         end)
     end
 end)
+
 mainChannel:Seperator()
 
 mainChannel:Label("Auto Collect Slot")
@@ -209,28 +250,84 @@ mainChannel:Seperator()
 
 mainChannel:Toggle("Anti AFK", false, function(val)
     shared.antiAFK = val
+    
     if val then
+        if shared.antiAFKConnection then
+            shared.antiAFKConnection:Disconnect()
+            shared.antiAFKConnection = nil
+        end
+
         task.spawn(function()
-            local vu = game:GetService("VirtualUser")
-            local player = game.Players.LocalPlayer
+            local Players = game:GetService("Players")
+            local VirtualUser = game:GetService("VirtualUser")
+            local VirtualInputManager = game:GetService("VirtualInputManager")
+            
+            local player = Players.LocalPlayer
+            local lastActivity = tick()
+
+            local idledConnection = player.Idled:Connect(function()
+                pcall(function()
+                    VirtualUser:CaptureController()
+                    VirtualUser:ClickButton2(Vector2.new())
+                end)
+            end)
+
+            shared.antiAFKConnection = idledConnection
+
+            DiscordLib:Notification("Anti AFK", "Enabled - Universal Mode", "OK")
+
             while shared.antiAFK do
                 pcall(function()
-                    vu:CaptureController()
-                    vu:ClickButton2(Vector2.new())
-                    if player.Character and player.Character:FindFirstChild("Humanoid") then
-                        player.Character.Humanoid:Move(Vector3.new(0,0,0), true)
-                        player.Character.Humanoid.Jump = true
-                        task.wait(0.5)
-                        player.Character.Humanoid.Jump = false
+                    local now = tick()
+                    if now - lastActivity > (35 + math.random(0,20)) then
+                        
+                        VirtualUser:CaptureController()
+                        VirtualUser:ClickButton2(Vector2.new(math.random(-10,10), math.random(-10,10)))
+                        
+                        if VirtualInputManager then
+                            VirtualInputManager:SendMouseMoveEvent(math.random(100,500), math.random(100,400))
+                            task.wait(0.05)
+                            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.W, false, game)
+                            task.wait(0.08)
+                            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.W, false, game)
+                        end
+                        
+                        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                            local root = player.Character.HumanoidRootPart
+                            local hum = player.Character:FindFirstChild("Humanoid")
+                            
+                            if hum then
+                                hum:MoveTo(root.Position + root.CFrame.LookVector * math.random(2,5))
+                                task.wait(0.2)
+                                hum.Jump = true
+                                task.wait(0.15)
+                            end
+                            
+                            if workspace.CurrentCamera then
+                                workspace.CurrentCamera.CFrame = workspace.CurrentCamera.CFrame * CFrame.Angles(0, math.rad(math.random(-8,8)), 0)
+                            end
+                        end
+                        
+                        lastActivity = now
                     end
                 end)
-                task.wait(45)
+                
+                task.wait(5 + math.random(0,3))
             end
         end)
+        
+    else
+        if shared.antiAFKConnection then
+            shared.antiAFKConnection:Disconnect()
+            shared.antiAFKConnection = nil
+        end
+        DiscordLib:Notification("Anti AFK", "Disabled", "OK")
     end
 end)
 
 mainChannel:Seperator()
-mainChannel:Colorpicker("UI Color", Color3.fromRGB(255,0,0), function(c) print(c) end)
+mainChannel:Colorpicker("UI Color", Color3.fromRGB(255,0,0), function(c) 
+    print(c)
+end)
 
-print("UI Loaded")
+print("Loaded")
